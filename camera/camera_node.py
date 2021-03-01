@@ -57,7 +57,7 @@ def callback(msg):
 	
 
 	
-     for i in range(239):    #pentru partea de sus
+    for i in range(239):    #pentru partea de sus
        beta=(239-i)*increment   #calculam unghiurile si pentru fiecare, distanta maxima pe  orizontala
        max_dist[i]=maxim[i][0]*np.cos(math.fabs(beta))
        for j in range(nr_columns):
