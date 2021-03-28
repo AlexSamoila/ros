@@ -1,3 +1,140 @@
+#final
+#!/usr/bin/env python3
+import copy
+import rospy
+import math
+import struct
+import numpy as np
+from sensor_msgs.msg import Image
+from sensor_msgs.msg import LaserScan
+from image_geometry import PinholeCameraModel
+from cv_bridge import CvBridge
+import rospkg
+import cv2
+
+pub=0
+bridge=CvBridge()
+My_mat = np.zeros((1080,1920))
+Matrice_imagine = np.zeros((1080,1920))
+maxim = np.zeros((1080,1920))
+max_dist=np.zeros(1080)
+distanta=np.zeros((1080,1920))
+linii_jos=np.zeros((84,1920))
+Distanta=np.zeros((84,1920))
+Date=np.zeros((42,1920))
+laser=np.zeros(1920)
+final=np.zeros(1300)
+minim=np.zeros(1920)
+def callback(msg):
+    #global umin,umax,increment
+    global pub
+    global My_mat
+    global maxim
+    global max_dist
+    global distanta	
+    global minim
+    h_rob=0.287
+    
+    fx=fy=1206.8897719532354
+    cx=1050.5
+    cy=540.5
+    
+    
+    nr_rows = msg.height
+    nr_columns = msg.width
+    pas=msg.step
+    codare=msg.encoding
+    rospy.loginfo('randuri:{} ,coloane:{} ,pas:{},enc:{}'.format(nr_rows,nr_columns,pas,codare))
+   
+    
+
+    for i in range(nr_rows):
+     for j in range(nr_columns):
+       elemente = [msg.data[i*nr_columns+4*j],msg.data[i*nr_columns+4*j+1],msg.data[i*nr_columns+4*j+2],msg.data[i*nr_columns+4*j+3]]
+       My_byte_float = bytearray(elemente)
+       #msg.data[i*nr_columns+4*j],msg.data[i*nr_columns+4*j+1],msg.data[i*nr_columns+4*j+2],msg.data[i*nr_columns+4*j+3])
+       My_float = struct.unpack('<f',My_byte_float) #little edian
+       #My_float = struct.unpack('>f',My_byte_float) #big edian
+       My_mat[i][j]=My_float[0]
+    
+
+    for i in range(nr_rows):
+     for j in range(nr_columns):
+      Matrice_imagine[i][j]=My_mat[i][nr_columns-j-1] 
+   
+     increment=0.0016	
+    k=0
+    for i in range(800,1080):          #pana la jumate, distanta maxima va fi 10 m
+     if ((i % 10 ==0 ) or (i % 10==4 )or (i % 10==8 ) ):
+       for j in range(nr_columns):
+        linii_jos[k][j]=Matrice_imagine[i][j]  
+       #print(k)        
+       k=k+1
+
+   # print(i)
+    #print(j)
+    for i in range(84):
+     for j in range(nr_columns):    
+      Distanta[i][j]=math.hypot(((j-cx))*linii_jos[i][j]*(1/fx),linii_jos[i][j])+0.12 #+ 0.00008*(1920-j)
+     #print(laser[j])
+    k=0 
+    for i in range(0,42,3): 
+     for j in range(nr_columns):
+      Date[i][j]=Distanta[k][j]
+      Date[i+1][j]=Distanta[k+1][j]
+      Date[i+2][j]=Distanta[k+2][j]
+     k=k+6
+     
+    for j in range(nr_columns):   
+     laser[j]=min(Date[:,j]) 
+     
+    for j in range(1870): 
+     laser[j]=laser[j+50]  
+     
+    print("aici e minim")
+    print(laser[960])
+
+    for j in range(300):  #
+     laser[j]=np.nan
+    for j in range(1620,1920):  #
+     laser[j]=np.nan
+    
+    for j in range(300,1620):
+     if (laser[j]>0.85):  #
+      laser[j]=np.nan
+      #minim[j]=min(distanta[:,j])
+    #daca mai mare de 0.8e nan de la linia 800 in jos
+     # print(minim[j])
+
+
+    ls=LaserScan()
+
+    ls.angle_min=-0.7
+    ls.angle_max=0.7
+    ls.angle_increment=0.00073
+    ls.header.frame_id="base_scan"
+    ls.time_increment=0	
+    ls.scan_time=0
+    ls.range_min=0.05
+    ls.range_max=5
+    ls.ranges=np.copy(laser)
+    #ls.intensities
+    pub.publish(ls)
+
+def main():
+    global pub
+    global My_mat
+    rospy.init_node('camera')
+    My_mat = np.zeros((1080,1920))
+    pub=rospy.Publisher("/mylidar/scan",LaserScan,queue_size = 10)
+    #callback(rospy.wait_for_message("/camera/depth/image_raw",Image))	
+    rospy.Subscriber("/camera/depth/image_raw",Image,callback)
+
+    rospy.spin()
+
+if __name__=='__main__':
+    main()	
+########################################################################
 #!/usr/bin/env python3
 import copy
 import rospy
